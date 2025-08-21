@@ -14,6 +14,7 @@ class conexion_Rummy:
         self.clientes = []
         self.cola_mensajes = []
         self.estado_juego = None
+        self.id_jugador_enviador = None  # Atributo para el ID del jugador que envía mensajes
 
         # Cliente
         self.socket_cliente = None
@@ -46,7 +47,8 @@ class conexion_Rummy:
                 socket_cliente, addr = self.socket_servidor.accept()
                 
                 with self.candado:
-                    id_jugador = len(self.clientes) 
+                    id_jugador = len(self.clientes)+1
+                    self.id_jugador = id_jugador
                     # Añadir el cliente a la lista
                     manejador_cliente = threading.Thread(target=self._manejar_cliente, args=(socket_cliente, id_jugador))
                     manejador_cliente.daemon = True
