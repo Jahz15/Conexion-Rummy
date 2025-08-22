@@ -18,6 +18,8 @@ if __name__ == "__main__":
                 time.sleep(1)
         except KeyboardInterrupt:
             print("Cerrando servidor y cliente")
+        except Exception as e:
+            pass
         finally:
             cliente_host.desconectar()
             server.desconectar()

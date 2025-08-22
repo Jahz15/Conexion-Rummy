@@ -3,17 +3,18 @@ import time
 
 if __name__ == "__main__":
     client = conexion_Rummy()
-    server_ip = client.encontrar_ip_servidor()
+    servidores_encontrados = client.encontrar_ip_servidor()
+    print(f"Servidores encontrados: {servidores_encontrados}")
 
-    if server_ip and client.conectar_a_servidor(server_ip):
-        print(f"Cliente conectado al servidor en {server_ip}")
-        try:
-            # Mantiene al cliente funcionando
-            while client.conectar_a_servidor:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("Cliente desconectándose...")
-        finally:
-            client.desconectar()
+    if servidores_encontrados and client.conectar_a_servidor(servidores_encontrados[0]): 
+            print(f"Cliente conectado al servidor en {servidores_encontrados[0]}")
+            try:
+                # Mantiene al cliente funcionando
+                while client.conectado:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("Cliente desconectándose...")
+            finally:
+                client.desconectar()
     else:
         print("Fallo al conectar con el servidor.")
