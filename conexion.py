@@ -58,7 +58,7 @@ class conexion_Rummy:
                 socket_cliente, addr = self.socket_servidor.accept()
                 with self.candado:
                     print(f"Cliente conectado desde {addr}")
-                    id_jugador = len(self.clientes) 
+                    id_jugador = len(self.clientes) + 1
                     # Añadir el cliente a la lista
                     manejador_cliente = threading.Thread(target=self._manejar_cliente, args=(socket_cliente, id_jugador))
                     manejador_cliente.daemon = True
