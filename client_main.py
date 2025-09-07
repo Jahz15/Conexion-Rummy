@@ -1,4 +1,3 @@
-from conexion import conexion_Rummy
 import time
 def run_client(cliente_rummy=None, nombre_jugador=None):
     client = cliente_rummy 
