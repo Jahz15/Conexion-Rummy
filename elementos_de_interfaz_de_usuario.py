@@ -24,7 +24,7 @@
 import pygame
 
 class Elemento_texto:
-    def __init__(self, un_juego, texto, ancho, alto, x, y, tamaño_fuente, fuente, color, radio_borde=0, color_texto=(0, 0, 0), color_borde=(0, 0, 0), grosor_borde=0,alineacion="centro", alineacion_vertical=None):
+    def __init__(self, un_juego, texto, ancho, alto, x, y, tamaño_fuente, fuente, color, radio_borde=0, color_texto=(0, 0, 0), color_borde=(0, 0, 0), grosor_borde=0,alineacion="centro", alineacion_vertical=None,**kwargs):
         self.pantalla = un_juego.pantalla
         self.ancho, self.alto = ancho, alto
         self.x, self.y = x, y
@@ -336,12 +336,16 @@ class Boton(Elemento_texto):
 
 """En caso de ser un boton tipo radio"""
 class BotonRadio(Boton):
-    def __init__(self, *args, grupo=None,valor=None, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, grupo=None,valor=None, deshabilitado=False, **kwargs):
+        self.deshabilitado = deshabilitado
         self.seleccionado = False
         self.grupo = grupo
         self.valor = valor
+        super().__init__(*args, **kwargs)
+        self.deshabilitar()
     def verificar_hover(self, posicion_raton):
+        if self.deshabilitado:
+            return False
         """Sobrescribe el método de Boton para que el borde no cambie si está seleccionado"""
         estaba_hover = self.esta_hover
         self.esta_hover = self.rect.collidepoint(posicion_raton)
@@ -351,7 +355,7 @@ class BotonRadio(Boton):
                 self.color_borde_actual = self.color_borde_hover if self.esta_hover else self.color_borde
             return True
     def sobre_el_elemento(self, con_retorno, funcion=None):
-        if self.esta_hover:
+        if self.esta_hover and not self.seleccionado:
             if self.grupo:
                 for boton in self.grupo:
                     boton.deseleccionar()
@@ -365,7 +369,7 @@ class BotonRadio(Boton):
         return False
 
     def manejar_evento(self, evento):
-        if not self.visible:
+        if not self.visible or self.deshabilitado:
             return False
         if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
             if hasattr(evento, 'pos') and self.rect.collidepoint(evento.pos):
@@ -382,6 +386,11 @@ class BotonRadio(Boton):
     def deseleccionar(self):
         self.seleccionado = False
         self.color_borde_actual = self.color_borde
+        self.deshabilitar()
+    def deshabilitar(self):
+        if self.deshabilitado:
+            self.color_borde_actual = (100, 100, 100)  # Gris para deshabilitado
+            self.color_texto = (100, 100, 100)
 class EntradaTexto(BotonRadio):
     def __init__(self, *args, valor="", limite_caracteres=None, grupo=None, **kwargs):
         super().__init__(*args, grupo=grupo, valor=None, **kwargs)
@@ -480,3 +489,5 @@ class EntradaTexto(BotonRadio):
             y_inicio = self.rect.y + 5
             y_fin = self.rect.y + self.rect.height - 5
             pygame.draw.line(self.pantalla, self.color_texto, (x_cursor, y_inicio), (x_cursor, y_fin), 2)
+    def verificar_hover(self, posicion_raton):
+        return super().verificar_hover(posicion_raton)

@@ -2,13 +2,15 @@ import socket
 import threading
 import json
 import time
+import pygame
+import constantes
 
 class conexion_Rummy:
     def __init__(self,max_jugadores=7):
         self.puerto = 5555
         self.ejecutandose = False
         self.candado = threading.RLock()
-
+        self.un_juego = None
         # Host
         self.max_jugadores = max_jugadores
         self.socket_servidor = None
@@ -41,6 +43,7 @@ class conexion_Rummy:
         hilo_servidor = threading.Thread(target=self.aceptar_conexiones)
         hilo_servidor.daemon = True
         hilo_servidor.start()
+        
 
         hilo_anuncio = threading.Thread(target=self.anunciar_servidor)
         hilo_anuncio.daemon = True
@@ -150,6 +153,8 @@ class conexion_Rummy:
                                         'nombre': mensaje.get('nombre'),
                                         'TotalJugadores': len(self.clientes)
                                     })
+                        self.un_juego.lista_elementos["jugadores_conectados"] = [c['nombre'] for c in self.clientes]
+                        print(self.un_juego.lista_elementos["jugadores_conectados"])
                         print(self.clientes)
 
                     if mensaje.get('type') == 'NuevoJugador':
@@ -174,7 +179,12 @@ class conexion_Rummy:
                                 'nombre': mensaje.get('nombre'),
                                 'TotalJugadores': len(self.clientes)
                             })
-                            break
+                            if self.un_juego:
+                                self.un_juego.lista_elementos["lista_jugadores"] = [c['nombre']  for c in self.clientes]
+
+                                evento_py = pygame.event.Event(constantes.EVENTO_NUEVO_JUGADOR)
+                                pygame.event.post(evento_py)
+                            
         except (ConnectionResetError, socket.error) as e:
             print(f"Error con el cliente {id_jugador}: Conexión perdida - {e}")
             print(self.jugadores_desconectados)
@@ -248,7 +258,8 @@ class conexion_Rummy:
             'port': self.puerto,
             'partida': self.nombre_partida,
             'host': getattr(self, 'nombre_host', 'Host'),
-            'id_jugadores_desconectados': self.jugadores_desconectados
+            'id_jugadores_desconectados': self.jugadores_desconectados,
+            'max_jugadores': self.max_jugadores
         }).encode('utf-8')
         try:
             while self.ejecutandose:
@@ -414,40 +425,40 @@ class conexion_Rummy:
         if self.hilo_recepcion and threading.current_thread() != self.hilo_recepcion:
             self.hilo_recepcion.join()
         
-    def encontrar_ip_servidor(self):
+    def encontrar_ip_servidor(self,un_juego):
         socket_busqueda = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         socket_busqueda.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         socket_busqueda.bind(('', 5556)) # Escuchar en el mismo puerto que el anuncio
         socket_busqueda.settimeout(5) # Esperar 5 segundos
 
         print("Buscando servidor en la red...")
-        try:
-            while True:
+        while True:
+            try:
                 data, direccion_servidor = socket_busqueda.recvfrom(1024)
                 mensaje = json.loads(data.decode('utf-8'))
                 ip_encontrada = direccion_servidor[0]
-                server_completo = []
+                nombre_partida = mensaje.get('partida', 'Desconocida')
+                nombre_host = mensaje.get('host', 'Host')
+                max_jugadores = mensaje.get('max_jugadores', 7)
                 self.jugadores_desconectados = mensaje.get('id_jugadores_desconectados', {})
-                if mensaje.get('type') == 'RummyServer' and direccion_servidor[0] not in self.conexiones_disponibles:
-                    nombre_partida = mensaje.get('partida', 'Desconocida')
-                    nombre_host = mensaje.get('host', 'Host')
+                info = {"nombre": nombre_partida,"jugadores":0,"max_jugadores":max_jugadores,"ip": ip_encontrada,}
+                if mensaje.get('type') == 'RummyServer' and info not in self.conexiones_disponibles:
                     print(f"Servidor encontrado en la IP: {ip_encontrada} - Partida: {nombre_partida} - Host: {nombre_host}")
-                    self.conexiones_disponibles.append(ip_encontrada)
-                    server_completo.append((ip_encontrada, nombre_partida))
+                    self.conexiones_disponibles.append(info)
+                    un_juego.lista_elementos["salas_disponibles"] = self.conexiones_disponibles
                     print(f"Conexiones disponibles: {self.conexiones_disponibles}")
+            except socket.timeout:
+                if not self.conexiones_disponibles:
+                    print("Tiempo de búsqueda agotado. Servidor no encontrado.")
+                    evento_py = pygame.event.Event(constantes.EVENTO_SALAS_ENCONTRADAS,salas=self.conexiones_disponibles)
+                    pygame.event.post(evento_py)
                 else:
-                    break
-        except socket.timeout:
-            if not self.conexiones_disponibles:
-                print("Tiempo de búsqueda agotado. Servidor no encontrado.")
-            else:
-                print("Búsqueda finalizada.")
-        except Exception as e:
-            print(f"Error buscando servidor: {e}")
-        finally:
-            socket_busqueda.close()
-        return self.conexiones_disponibles if self.conexiones_disponibles else None
-    
+                    print("Búsqueda finalizada.")
+            except Exception as e:
+                print(f"Error buscando servidor: {e}")
+            finally:
+                time.sleep(5) # Esperar antes de la siguiente búsqueda
+
     def intentar_reconexion(self, ip_servidor, intentos=5, espera=3):
         """
         Intenta reconectar automáticamente al servidor usando el id_jugador anterior.
@@ -465,3 +476,15 @@ class conexion_Rummy:
             time.sleep(espera)
         print("No se pudo reconectar después de varios intentos.")
         return False
+    
+    def enviar_accion(self, accion, datos=None):
+        if self.conectado and self.socket_cliente:
+            mensaje = {'type': accion}
+            if datos:
+                mensaje.update(datos)
+            try:
+                self.socket_cliente.sendall((json.dumps(mensaje) + '\n').encode('utf-8'))
+            except Exception as e:
+                print(f"Error al enviar acción al servidor: {e}")
+        else:
+            print("No conectado al servidor, no se puede enviar la acción.")

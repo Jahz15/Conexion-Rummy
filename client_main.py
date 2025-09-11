@@ -1,7 +1,7 @@
 import time
-def run_client(cliente_rummy=None, nombre_jugador=None):
+def run_client(cliente_rummy=None, nombre_jugador=None,un_juego=None):
     client = cliente_rummy 
-
+    client.un_juego = un_juego
     servidores_encontrados = client.encontrar_ip_servidor()
     print(f"Servidores encontrados: {servidores_encontrados}")
 

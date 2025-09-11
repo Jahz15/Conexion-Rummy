@@ -1,3 +1,4 @@
+import pygame
 # BT significara boton
 
 #Colores
@@ -126,3 +127,11 @@ ALTO_MENU_MESA_ESPERA = ALTO_VENTANA
 ANCHO_MENU_NOM_USUARIO = ANCHO_MENU_CNT_J
 ALTO_MENU_NOM_USUARIO = ALTO_MENU_CNT_J
 #Fin de menu Cantidad de Jugadores
+
+# Menu Selección de Sala dimensiones
+ANCHO_MENU_SELECCION_SALA = ANCHO_VENTANA * 0.95
+ALTO_MENU_SELECCION_SALA = ALTO_VENTANA * 0.95
+
+#Evento jugador conectado
+EVENTO_NUEVO_JUGADOR = pygame.USEREVENT + 1
+EVENTO_SALAS_ENCONTRADAS = pygame.USEREVENT + 2
