@@ -2,11 +2,15 @@
 
 import pygame
 import sys
-import threading
-import constantes
-import acciones
-from  elementos_de_interfaz_de_usuario import Elemento_texto,Boton,BotonRadio, EntradaTexto
-from menu import Menu
+
+
+
+from recursos_graficos import constantes
+# Importaciones absolutas
+from recursos_graficos.elementos_de_interfaz_de_usuario import Elemento_texto, Boton, BotonRadio, EntradaTexto, CartelAlerta
+from recursos_graficos.menu import Menu
+from redes_interfaz import acciones
+
 
 """Clase ventana donde estaran todos los diseños e interacciones"""
 class Ventana:
@@ -15,20 +19,18 @@ class Ventana:
         pygame.init()
         pygame.font.init()
         self.pantalla = pygame.display.set_mode((constantes.ANCHO_VENTANA,constantes.ALTO_VENTANA))
+        self.cartel_alerta = CartelAlerta(self.pantalla, "", 0, 0)
         pygame.display.set_caption("Rummy500")
-
         # Datos de juego
         self.lista_elementos = {
-            "cantidad_jugadores": 0,
-            "lista_jugadores": [],
             "nombre_creador": "",
             "nombre_sala": "",
+            "cantidad_jugadores":0,
+            "ip_sala":"",
+            "lista_jugadores": [],
             "nombre_unirse": "",
-            "sala_seleccionada":{},
-            "sala_creada":{},
-            "salas_disponibles":[]
+            "salas_disponibles" : []
         }
-
 
 
         self.elementos_creados = []
@@ -42,8 +44,8 @@ class Ventana:
         self.menu_inicio = self.Menu_inicio()
         self.boton_jugar = self.Boton_jugar()
         self.menu_Cantidad_Jugadores = self.Menu_Cantidad_Jugadores()
-        self.menu_mesa_espera = self.Menu_mesa_espera() 
-        self.buscar_servidor = acciones.buscar_salas(self)
+        self.menu_mesa_espera = self.Menu_mesa_espera()
+        Buscar_salas = acciones.Buscar_salas(self)
 
         #Temporizador
         self.clock = pygame.time.Clock()
@@ -81,7 +83,7 @@ class Ventana:
         self.elementos_creados.append(boton_jugar)
         return boton_jugar
 
-    """Funcion que crea el menu de instrucciones usan ElementoTexto"""
+    """Funciones que crean el menu de instrucciones usan ElementoTexto, y Boton"""
     def Menu_instrucciones(self):
         x_menu, y_menu = self.centrar(constantes.ANCHO_MENU_INSTRUCCIONES,constantes.ALTO_MENU_INSTRUCCIONES)
 
@@ -97,6 +99,13 @@ class Ventana:
             redondeo=constantes.REDONDEO_PRONUNCIADO
         )
 
+        self.crear_elementos_instrucciones(menu_instrucciones)
+
+        self.crear_elementos_control_instrucciones(menu_instrucciones)
+
+        self.elementos_creados.append(menu_instrucciones)
+        return menu_instrucciones
+    def crear_elementos_instrucciones(self,menu_instrucciones):
         # Texto ocupa casi todo el ancho y 70% de la altura
         menu_instrucciones.crear_elemento(
             Clase=Elemento_texto,
@@ -116,7 +125,8 @@ class Ventana:
             alineacion_vertical="arriba",
             alineacion="izquierda"
         )
-
+    def crear_elementos_control_instrucciones(self,menu_instrucciones):
+        
         # Botón volver ocupa ancho pequeño y se ubica centrado abajo
         menu_instrucciones.crear_elemento(
             Clase=Boton,
@@ -137,20 +147,9 @@ class Ventana:
             color_borde_clicado=constantes.ELEMENTO_CLICADO_PRINCIPAL,
             accion=lambda: acciones.Mostrar_seccion(self, self.menu_inicio)
         )
+    """Fin de las funciones que crean el menu de instrucciones"""
 
-        self.elementos_creados.append(menu_instrucciones)
-        return menu_instrucciones
-    def mostrar_menu_nombre_usuario(self, creador=False):
-        if creador:
-            if not hasattr(self, "menu_nombre_creador"):
-                self.menu_nombre_creador = self.Menu_nombre_usuario(True)
-            acciones.Confirmar_cantidad_jugadores(self,self.menu_nombre_creador,self.menu_Cantidad_Jugadores)
-        else:
-            if not hasattr(self, "menu_nombre_usuario"):
-                self.menu_nombre_usuario = self.Menu_nombre_usuario(False)
-            acciones.Mostrar_seccion(self, self.menu_nombre_usuario)
-
-    """Se define el menu nombre de usuario, depende de si es el creador o es solamente un participante ejecuta una cosa u otra"""
+    """Se define las funciones para el menu nombre de usuario, depende de si es el creador o es solamente un participante ejecuta una cosa u otra"""
     def Menu_nombre_usuario(self,creador_sala):
         
         x_menu,y_menu = self.centrar(constantes.ANCHO_MENU_NOM_USUARIO,constantes.ALTO_MENU_NOM_USUARIO)
@@ -166,6 +165,14 @@ class Ventana:
             constantes.BORDE_PRONUNCIADO,
             constantes.REDONDEO_PRONUNCIADO
         )
+        
+        self.crear_elementos_usuario(menu_nombre_usuario,creador_sala)
+        
+        self.crear_elementos_control_usuario(menu_nombre_usuario,creador_sala)
+        
+        self.elementos_creados.append(menu_nombre_usuario)
+        return menu_nombre_usuario
+    def crear_elementos_usuario(self,menu_nombre_usuario,creador_sala):
         textos = ("DATOS DE LA PARTIDA Y USUARIO","INGRESA TU NOMBRE","NOMBRE DE LA SALA","nombre","nombre sala")
         grupos_elementos_entrada = []
         posiciones_x = [0.06, 0.94] #ubicacion de cada columna
@@ -216,6 +223,8 @@ class Ventana:
                     grosor_borde=constantes.BORDE_INTERMEDIO
                 )
             elif clase == EntradaTexto:
+                permitir_espacios = False
+                permitir_numeros = False
                 menu_nombre_usuario.crear_elemento(
                     Clase=clase,
                     x=x,
@@ -230,18 +239,23 @@ class Ventana:
                     color = constantes.ELEMENTO_FONDO_PRINCIPAL,
                     radio_borde=constantes.REDONDEO_NORMAL,
                     color_texto=constantes.COLOR_TEXTO_PRINCIPAL,
-                    grupo=grupos_elementos_entrada
+                    grupo=grupos_elementos_entrada,
+                    permitir_espacios=permitir_espacios,
+                    permitir_numeros=permitir_numeros,
+                    permitir_especiales = False,
+                    cartel_alerta = self.cartel_alerta
                 )
                 grupos_elementos_entrada.append(menu_nombre_usuario.botones[-1])
+    def crear_elementos_control_usuario(self,menu_nombre_usuario,creador_sala):
         texto_botones = ("VOLVER","CONFIRMAR")
         crear_sevidor = None
         if not creador_sala: 
             mostrar = self.menu_inicio
-            unirse_servidor = lambda: self.mostrar_menu_seleccion_sala()
+            unirse_servidor = lambda: (acciones.validar_y_unirse_sala(self,menu_nombre_usuario))
             accion_confirmar = unirse_servidor
         else:
             mostrar = self.menu_Cantidad_Jugadores
-            crear_sevidor = lambda: (print("Ejecutando crear_sevidor"), self.mostrar_menu_mesa_espera())[1]
+            crear_sevidor = lambda: (acciones.validar_y_crear_servidor(self,menu_nombre_usuario))
             accion_confirmar = crear_sevidor
 
         accion_por_boton = (lambda: acciones.Mostrar_seccion(self,mostrar),accion_confirmar)
@@ -269,8 +283,8 @@ class Ventana:
                 accion=accion_por_boton[i]
             )
             incrementar_x = 0.55
-        self.elementos_creados.append(menu_nombre_usuario)
-        return menu_nombre_usuario
+    """Fin de las fucniones del menu de usuario"""
+
     """Funcion Menu de inicio define un menu con sus parametros, y se crean los botones necesarios."""
     def Menu_inicio(self):
         x,y = self.centrar(constantes.ANCHO_MENU_I,constantes.ALTO_MENU_I)
@@ -285,11 +299,19 @@ class Ventana:
             grosor_borde= constantes.SIN_BORDE,
             redondeo= constantes.REDONDEO_PRONUNCIADO
             )
+        
+        self.crear_elementos_control_inicio(menu_inicio)
+        
+        posicion_logo = (constantes.ANCHO_MENU_I*0.05,constantes.ALTO_MENU_I*0.1)
+        menu_inicio.agregar_imagen(self.logo_rummy,posicion_logo,constantes.SCALA)
+        self.elementos_creados.append(menu_inicio)
+        return menu_inicio
+    def crear_elementos_control_inicio(self,menu_inicio):
         #Creacion de cada boton por cada elemento de texto_menu_inicio(acompañado de sus acciones)
         texto_menu_inicio = ("CREAR SALA","UNIRSE A LA SALA","COMO JUGAR","SALIR DEL JUEGO")
         funciones_menu_inicio = (
             lambda: acciones.Mostrar_seccion(self, self.menu_Cantidad_Jugadores), 
-            lambda: self.mostrar_menu_nombre_usuario(False),   # ← unirse
+            lambda: acciones.mostrar_menu_nombre_usuario(self,False),   # ← unirse
             lambda: acciones.Mostrar_seccion(self, self.menu_instrucciones),
             self.salir
         )
@@ -317,12 +339,10 @@ class Ventana:
                 accion=funciones_menu_inicio[i]
             )
             incremetar_y += 0.25
-        posicion_logo = (constantes.ANCHO_MENU_I*0.05,constantes.ALTO_MENU_I*0.1)
-        menu_inicio.agregar_imagen(self.logo_rummy,posicion_logo,constantes.SCALA)
-        self.elementos_creados.append(menu_inicio)
-        return menu_inicio
+    """Fin de las funciones para el menu de inicio"""
 
-    """Menu cantidad de jugadores, pide los jugadores(6 botones tipo radio,2 botones normales)"""
+
+    """funciones para el menu cantidad de jugadores, pide los jugadores(6 botones tipo radio,2 botones normales)"""
     def Menu_Cantidad_Jugadores(self):
         x_menu,y_menu = self.centrar(constantes.ANCHO_MENU_CNT_J,constantes.ALTO_MENU_CNT_J)
         
@@ -338,6 +358,13 @@ class Ventana:
             constantes.REDONDEO_PRONUNCIADO
         )
 
+        posicion_y = self.crear_elementos_cantidad_jugadores(menu_cantidad)
+        
+        self.crear_elementos_control_cantidad_jugadores(menu_cantidad,posicion_y)
+        
+        self.elementos_creados.append(menu_cantidad)
+        return menu_cantidad
+    def crear_elementos_cantidad_jugadores(self,menu_cantidad):
         ancho_seleccion = constantes.ELEMENTO_GRANDE_ANCHO*2
         alto_seleccion = constantes.ELEMENTO_MEDIANO_ALTO*0.95
         x_seleccion = (constantes.ANCHO_MENU_CNT_J - ancho_seleccion)*(0.5)
@@ -395,7 +422,8 @@ class Ventana:
             )
             # Agregamos el ultimo boton creado al grupo
             botones_radio.append(menu_cantidad.botones[-1])
-
+        return posicion_y
+    def crear_elementos_control_cantidad_jugadores(self,menu_cantidad,posicion_y):
         # Boton de Volver a Inicio
         x_boton_volver = (constantes.ELEMENTO_MEDIANO_ANCHO) / 3
         y_boton_volver = (constantes.ALTO_MENU_CNT_J - constantes.ELEMENTO_MEDIANO_ALTO) * (posicion_y+0.3)
@@ -439,22 +467,11 @@ class Ventana:
                 grosor_borde=constantes.BORDE_PRONUNCIADO,
                 color_borde_hover=constantes.ELEMENTO_HOVER_PRINCIPAL,
                 color_borde_clicado=constantes.ELEMENTO_CLICADO_PRINCIPAL,
-                accion=lambda: self.mostrar_menu_nombre_usuario(True)
-
+                accion=lambda: acciones.mostrar_menu_nombre_usuario(self,True)
         )
-        self.elementos_creados.append(menu_cantidad)
-        return menu_cantidad
-    # en Ventana
-    def mostrar_menu_mesa_espera(self):
-        # asegurarnos de tener inputs
+    """fin de las funciones para cantidad jugadores"""
 
-        # (re)crear el menú ahora que lista_elementos ya está actualizada
-        self.menu_mesa_espera = self.Menu_mesa_espera()
-        acciones.Mostrar_seccion(self, self.menu_mesa_espera)
-        acciones.Valores_crear_sevidor(self, self.menu_nombre_creador)
-        acciones.Crear_servidor(self)
-
-        # acciones.(self,self.menu_nombre_creador,self.menu_Cantidad_Jugadores)
+    """funciones para el menu mesa de espera"""
     def Menu_mesa_espera(self):
         x_menu,y_menu = self.centrar(constantes.ANCHO_MENU_MESA_ESPERA,constantes.ALTO_MENU_MESA_ESPERA)
         menu_mesa_espera = Menu(
@@ -468,11 +485,19 @@ class Ventana:
             constantes.BORDE_PRONUNCIADO,
             constantes.REDONDEO_NORMAL
         )
+        
+        elemento_texto = self.crear_elementos_mesa_espera(menu_mesa_espera)
+        
+        # Guardar referencia al elemento de texto para poder actualizarlo
+        menu_mesa_espera.elemento_texto_espera = elemento_texto
+        self.elementos_creados.append(menu_mesa_espera)
+        return menu_mesa_espera
+    def crear_elementos_mesa_espera(self,menu_mesa_espera):
         ancho_txt_esperando = constantes.ELEMENTO_GRANDE_ANCHO*1.6
         alto_txt_esperando = constantes.ELEMENTO_MEDIANO_ALTO*2.6
         x_txt_esperando = (constantes.ANCHO_MENU_MESA_ESPERA - ancho_txt_esperando)*(0.5)
         y_txt_esperando = (constantes.ALTO_MENU_MESA_ESPERA - alto_txt_esperando)*(0.5)
-        menu_mesa_espera.crear_elemento(
+        elemento_texto = menu_mesa_espera.crear_elemento(
             Clase=Elemento_texto,
             x=x_txt_esperando,
             y=y_txt_esperando,
@@ -489,31 +514,63 @@ class Ventana:
             grosor_borde=constantes.SIN_BORDE,
             alineacion="izquierda"
         )
-        self.elementos_creados.append(menu_mesa_espera)
-        return menu_mesa_espera
-    
+        return elemento_texto
+
     def texto_menu_mesa_espera(self):
-        jugadores_actuales = len(self.lista_elementos.get("lista_jugadores", 0))
+        """Genera el texto actualizado para la mesa de espera"""
+        jugadores_actuales = len(self.lista_elementos.get("lista_jugadores", []))
         max_esperados = self.lista_elementos.get("cantidad_jugadores", 0)
+        nombre_sala = self.lista_elementos.get("nombre_sala", "No definido")
+        nombre_creador = self.lista_elementos.get("nombre_creador", "No definido")
+
         faltan = max(0, max_esperados - jugadores_actuales)
-        return (f"NOMBRE DE LA SALA: {self.lista_elementos.get('nombre_sala','')}\n"
-                f"CREADOR DE LA SALA: {self.lista_elementos.get('nombre_creador','')}\n"
-                f"ESPERANDO JUGADORES...\nFALTAN: {faltan}")
+    
+        texto = (
+            f"NOMBRE DE LA SALA: {nombre_sala}\n"
+            f"CREADOR DE LA SALA: {nombre_creador}\n"
+            f"JUGADORES CONECTADOS: {jugadores_actuales}/{max_esperados}\n"
+            f"ESPERANDO JUGADORES...\nFALTAN: {faltan}"
+        )
+    
+        print(f"Generando texto para mesa de espera:")
+        print(f"- Sala: {nombre_sala}")
+        print(f"- Creador: {nombre_creador}")
+        print(f"- Jugadores: {jugadores_actuales}/{max_esperados}")
+        print(f"- Faltan: {faltan}")
+    
+        return texto
+
     def actualizar_mesa_espera(self):
         """Actualiza la mesa de espera"""
         print("Actualizando mesa de espera...")
-        # Remover el menú actual
-        print(self.elementos_creados)
-        if self.menu_mesa_espera in self.elementos_creados:
-            self.elementos_creados.remove(self.menu_mesa_espera)
-            print("hola")
     
-        # Crear nueva mesa actualizada
-        self.menu_mesa_espera = self.Menu_mesa_espera()
-        self.elementos_creados.append(self.menu_mesa_espera)
-        acciones.Mostrar_seccion(self, self.menu_mesa_espera)
-
+        if hasattr(self, "menu_mesa_espera") and self.menu_mesa_espera in self.elementos_creados:
+            # Actualizar el texto del elemento existente en lugar de recrear todo
+            texto_actualizado = self.texto_menu_mesa_espera()
+            print(f"Texto actualizado: {texto_actualizado}")
+        
+            # Si el menú tiene un elemento de texto, actualizarlo
+            if hasattr(self.menu_mesa_espera, 'elemento_texto_espera'):
+                self.menu_mesa_espera.elemento_texto_espera.texto = texto_actualizado
+                self.menu_mesa_espera.elemento_texto_espera.prepar_texto()  # Re-preparar el texto
+                print("✓ Texto del elemento actualizado")
+            else:
+                # Buscar el elemento de texto en los botones del menú
+                for boton in self.menu_mesa_espera.botones:
+                    if isinstance(boton, Elemento_texto):
+                        boton.texto = texto_actualizado
+                        boton.prepar_texto()  # Re-preparar el texto
+                        print("✓ Texto del elemento encontrado y actualizado")
+                        break
+        else:
+            print("Menú de mesa de espera no encontrado, creando nuevo...")
+            # Crear nuevo menú si no existe
+            self.menu_mesa_espera = self.Menu_mesa_espera()
+            self.elementos_creados.append(self.menu_mesa_espera)
+            acciones.Mostrar_seccion(self, self.menu_mesa_espera)
+    """fin de las funciones para la mesa de espera"""
     
+    """funciones para el menu de seleccion de salas"""
     def Menu_seleccion_sala(self):
         x_menu, y_menu = self.centrar(constantes.ANCHO_MENU_SELECCION_SALA, constantes.ALTO_MENU_SELECCION_SALA)
     
@@ -570,7 +627,6 @@ class Ventana:
         )
         else:
         # Crear botones para cada sala
-            print(salas_disponibles)
             self.crear_botones_salas(menu_seleccion_sala, salas_disponibles)
     
     # Agregar botones de control
@@ -578,7 +634,6 @@ class Ventana:
     
         self.elementos_creados.append(menu_seleccion_sala)
         return menu_seleccion_sala
-    
     def crear_botones_salas(self, menu, salas):
         """Crea botones para las salas disponibles"""
         grupo_salas = []
@@ -592,7 +647,7 @@ class Ventana:
         for i, sala in enumerate(salas):
             fila = i // columnas
             columna = i % columnas
-            print(sala)
+        
             x_pos = espaciado_x + columna * (ancho_boton + espaciado_x)
             y_pos = constantes.ALTO_MENU_SELECCION_SALA * 0.2 + fila * (alto_boton + espaciado_y)
         
@@ -624,7 +679,6 @@ class Ventana:
                 deshabilitado=sala_llena
             )
             grupo_salas.append(menu.botones[-1])
-
     def agregar_botones_control_salas(self, menu):
         """Agrega botones de control (Volver, Actualizar, Confirmar)"""
         x_volver = (constantes.ANCHO_MENU_SELECCION_SALA - constantes.ELEMENTO_PEQUENO_ANCHO) * 0.05
@@ -698,19 +752,12 @@ class Ventana:
         # Remover el menú actual
         if hasattr(self, "menu_seleccion_sala") and self.menu_seleccion_sala in self.elementos_creados:
             self.elementos_creados.remove(self.menu_seleccion_sala)
+    
         # Crear nuevo menú con salas actualizadas
         self.menu_seleccion_sala = self.Menu_seleccion_sala()
         acciones.Mostrar_seccion(self, self.menu_seleccion_sala)
+    """fin de las funciones para menu sala"""
 
-    def mostrar_menu_seleccion_sala(self):
-        """Muestra el menú de selección de sala"""
-        # Crear el menú si no existe
-        if not hasattr(self, "menu_seleccion_sala"):
-            self.menu_seleccion_sala = self.Menu_seleccion_sala()
-    
-        # Mostrar el menú y guardar el nombre del jugador
-        acciones.Nombre_jugador_unirse(self,self.menu_nombre_usuario)
-        acciones.Mostrar_seccion(self, self.menu_seleccion_sala)
     """Boton de salir del juego"""
     def salir(self):
         pygame.quit()
@@ -718,40 +765,67 @@ class Ventana:
 
     """Funciones auxiliares para el ciclo principal del juego"""
     def ejecutar_manejo_eventos(self, evento):
-        self.boton_jugar.manejar_evento(evento)
-        self.menu_seleccion_sala.manejar_eventos(evento)
-        self.menu_instrucciones.manejar_eventos(evento)
-        self.menu_inicio.manejar_eventos(evento)
-        self.menu_Cantidad_Jugadores.manejar_eventos(evento)
-
-        if hasattr(self, "menu_mesa_espera"):
-            self.menu_mesa_espera.manejar_eventos(evento)
+        if self.cartel_alerta.manejar_evento(evento):
+            return
         
-        if hasattr(self, "menu_nombre_creador"):
-            self.menu_nombre_creador.manejar_eventos(evento)
-        if hasattr(self, "menu_nombre_usuario"):
-            self.menu_nombre_usuario.manejar_eventos(evento)
-        if hasattr(self, "menu_seleccion_sala"):
-            self.menu_seleccion_sala.manejar_eventos(evento)
+
+        self.boton_jugar.manejar_evento(evento)
+
+        
+    
+        # Verificar existencia antes de acceder
+        menus = [
+            self.menu_seleccion_sala, 
+            self.menu_instrucciones, 
+            self.menu_inicio, 
+            self.menu_Cantidad_Jugadores
+        ]
+    
+        for menu in menus:
+            menu.manejar_eventos(evento)
+
+        # Menús condicionales
+        conditional_menus = [
+            "menu_mesa_espera", 
+            "menu_nombre_creador", 
+            "menu_nombre_usuario", 
+            "menu_seleccion_sala"
+        ]
+    
+        for menu_name in conditional_menus:
+            if hasattr(self, menu_name):
+                getattr(self, menu_name).manejar_eventos(evento)
 
     def ejecutar_verificacion_hovers(self, posicion_raton):
+        self.cartel_alerta.verificar_hover(posicion_raton)
         self.boton_jugar.verificar_hover(posicion_raton)
-        self.menu_instrucciones.verificar_hovers(posicion_raton)
-        self.menu_inicio.verificar_hovers(posicion_raton)
-        self.menu_Cantidad_Jugadores.verificar_hovers(posicion_raton)
-        self.menu_seleccion_sala.verificar_hovers(posicion_raton)
-        
-        if hasattr(self, "menu_mesa_espera"):
-            self.menu_mesa_espera.verificar_hovers(posicion_raton)
-
-        if hasattr(self, "menu_nombre_creador"):
-            self.menu_nombre_creador.verificar_hovers(posicion_raton)
-        if hasattr(self, "menu_nombre_usuario"):
-            self.menu_nombre_usuario.verificar_hovers(posicion_raton)
-        if hasattr(self, "menu_seleccion_sala"):
-            self.menu_seleccion_sala.verificar_hovers(posicion_raton)
+    
+        # Menús principales
+        main_menus = [
+            self.menu_instrucciones, 
+            self.menu_inicio, 
+            self.menu_Cantidad_Jugadores
+        ]
+    
+        for menu in main_menus:
+            if menu:
+                menu.verificar_hovers(posicion_raton)
+    
+        # Menús condicionales
+        conditional_menus = [
+            "menu_mesa_espera", 
+            "menu_nombre_creador", 
+            "menu_nombre_usuario", 
+            "menu_seleccion_sala"
+        ]
+    
+        for menu_name in conditional_menus:
+            if hasattr(self, menu_name):
+                getattr(self, menu_name).verificar_hovers(posicion_raton)
 
     def ejecutar_dibujado(self):
+        self.pantalla.fill(constantes.FONDO_VENTANA)
+        
         self.boton_jugar.dibujar()
         self.menu_instrucciones.dibujar_menu()
         self.menu_inicio.dibujar_menu()
@@ -766,8 +840,10 @@ class Ventana:
         if hasattr(self, "menu_nombre_usuario"):
             self.menu_nombre_usuario.dibujar_menu()
         if hasattr(self, "menu_seleccion_sala"):
-            self.menu_seleccion_sala.dibujar_menu()  
+            self.menu_seleccion_sala.dibujar_menu()
 
+        self.cartel_alerta.dibujar()
+        
     def Correr_juego(self):
         ejecutar = True
         while ejecutar:
@@ -782,9 +858,9 @@ class Ventana:
                 if evento.type == pygame.QUIT:
                     acciones.Salir()
                     ejecutar = False
-                elif evento.type == constantes.EVENTO_NUEVO_JUGADOR:
+                if evento.type == constantes.EVENTO_NUEVO_JUGADOR:
                     self.actualizar_mesa_espera()
-                elif evento.type == constantes.EVENTO_SALAS_ENCONTRADAS:
+                if evento.type == constantes.EVENTO_SALAS_ENCONTRADAS:
                     self.lista_elementos["salas_disponibles"] = evento.salas
                 self.ejecutar_manejo_eventos(evento)
 

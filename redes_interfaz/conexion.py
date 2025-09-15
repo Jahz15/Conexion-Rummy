@@ -3,8 +3,13 @@ import threading
 import json
 import time
 import pygame
-import constantes
+from redes_interfaz import archivo_de_importaciones
 
+importar_desde_carpeta = archivo_de_importaciones.importar_desde_carpeta
+constantes = importar_desde_carpeta(
+    nombre_archivo="constantes.py",
+    nombre_carpeta="recursos_graficos",
+)
 class conexion_Rummy:
     def __init__(self,max_jugadores=7):
         self.puerto = 5555
@@ -253,16 +258,18 @@ class conexion_Rummy:
         socket_anuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         socket_anuncio.settimeout(1)
 
-        mensaje = json.dumps({
-            'type': 'RummyServer',
-            'port': self.puerto,
-            'partida': self.nombre_partida,
-            'host': getattr(self, 'nombre_host', 'Host'),
-            'id_jugadores_desconectados': self.jugadores_desconectados,
-            'max_jugadores': self.max_jugadores
-        }).encode('utf-8')
         try:
             while self.ejecutandose:
+                mensaje = json.dumps({
+                'type': 'RummyServer',
+                'port': self.puerto,
+                'partida': self.nombre_partida,
+                'host': getattr(self, 'nombre_host', 'Host'),
+                'id_jugadores_desconectados': self.jugadores_desconectados,
+                'jugadores': len(self.clientes),
+                'max_jugadores': self.max_jugadores,
+                "lista_jugadores" : [c['nombre'] for c in self.clientes],
+                    }).encode('utf-8')
                 socket_anuncio.sendto(mensaje, ('255.255.255.255', 5556)) # Puerto diferente al de conexión
                 time.sleep(5) # Anunciarse cada 5 segundos
         except Exception as e:
@@ -424,7 +431,14 @@ class conexion_Rummy:
         # Cerrar hilo de recepción del cliente
         if self.hilo_recepcion and threading.current_thread() != self.hilo_recepcion:
             self.hilo_recepcion.join()
-        
+    
+    def verificar_conexion_nueva(self,ip_encontrada):
+        for x in self.conexiones_disponibles:
+            if ip_encontrada != self.conexiones_disponibles["ip"]:
+                return True
+            else:
+                return False
+    
     def encontrar_ip_servidor(self,un_juego):
         socket_busqueda = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         socket_busqueda.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -440,24 +454,39 @@ class conexion_Rummy:
                 nombre_partida = mensaje.get('partida', 'Desconocida')
                 nombre_host = mensaje.get('host', 'Host')
                 max_jugadores = mensaje.get('max_jugadores', 7)
+                jugadores = mensaje.get('jugadores', 0)
                 self.jugadores_desconectados = mensaje.get('id_jugadores_desconectados', {})
-                info = {"nombre": nombre_partida,"jugadores":0,"max_jugadores":max_jugadores,"ip": ip_encontrada,}
-                if mensaje.get('type') == 'RummyServer' and info not in self.conexiones_disponibles:
+                lista_jugadores = mensaje.get('lista_jugadores', [])
+                info = {"nombre": nombre_partida,"jugadores":jugadores,"max_jugadores":max_jugadores,"ip": ip_encontrada,"lista_jugadores":lista_jugadores,"creador":nombre_host}
+                servidor_encontrado = None
+                for server in self.conexiones_disponibles:
+                    if server['ip'] == ip_encontrada:
+                        servidor_encontrado = server
+                        break  # Se encontró, no es necesario seguir buscando
+                if mensaje.get('type') == 'RummyServer' and servidor_encontrado == None:
                     print(f"Servidor encontrado en la IP: {ip_encontrada} - Partida: {nombre_partida} - Host: {nombre_host}")
                     self.conexiones_disponibles.append(info)
-                    un_juego.lista_elementos["salas_disponibles"] = self.conexiones_disponibles
-                    print(f"Conexiones disponibles: {self.conexiones_disponibles}")
-            except socket.timeout:
-                if not self.conexiones_disponibles:
-                    print("Tiempo de búsqueda agotado. Servidor no encontrado.")
                     evento_py = pygame.event.Event(constantes.EVENTO_SALAS_ENCONTRADAS,salas=self.conexiones_disponibles)
                     pygame.event.post(evento_py)
-                else:
-                    print("Búsqueda finalizada.")
+                    print(f"Conexiones disponibles: {self.conexiones_disponibles}")
+                elif servidor_encontrado["jugadores"] != jugadores:
+                    print(f"Actualizando Partida {nombre_partida} ")
+                    servidor_encontrado["jugadores"] = jugadores
+                    evento_py = pygame.event.Event(constantes.EVENTO_SALAS_ENCONTRADAS,salas=self.conexiones_disponibles)
+                    pygame.event.post(evento_py)
+
+
+
+            except socket.timeout:
+                    print("Tiempo de búsqueda agotado. Servidor no encontrado.")
+                    self.conexiones_disponibles = []
+                    evento_py = pygame.event.Event(constantes.EVENTO_SALAS_ENCONTRADAS,salas=self.conexiones_disponibles)
+                    pygame.event.post(evento_py)
             except Exception as e:
                 print(f"Error buscando servidor: {e}")
             finally:
                 time.sleep(5) # Esperar antes de la siguiente búsqueda
+    
 
     def intentar_reconexion(self, ip_servidor, intentos=5, espera=3):
         """

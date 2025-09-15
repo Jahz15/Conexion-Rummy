@@ -20,7 +20,7 @@
 ## total_horas_perdidas_aquí = 30
 
 
-
+from recursos_graficos import constantes
 import pygame
 
 class Elemento_texto:
@@ -392,7 +392,12 @@ class BotonRadio(Boton):
             self.color_borde_actual = (100, 100, 100)  # Gris para deshabilitado
             self.color_texto = (100, 100, 100)
 class EntradaTexto(BotonRadio):
-    def __init__(self, *args, valor="", limite_caracteres=None, grupo=None, **kwargs):
+    def __init__(self, *args, valor="", limite_caracteres=None, grupo=None, permitir_espacios=False, permitir_numeros=False, permitir_especiales=False, cartel_alerta= None, **kwargs):
+        self.permitir_espacios = permitir_espacios
+        self.permitir_numeros = permitir_numeros
+        self.permitir_especiales = permitir_especiales
+        self.texto_valido = True
+        self.cartel_alerta = cartel_alerta
         super().__init__(*args, grupo=grupo, valor=None, **kwargs)
         self.valor = valor
         self.limite_caracteres = limite_caracteres
@@ -431,13 +436,96 @@ class EntradaTexto(BotonRadio):
                 self.pos_cursor -= 1
             elif evento.key == pygame.K_RIGHT and self.pos_cursor < len(self.valor):
                 self.pos_cursor += 1
+            elif evento.key == pygame.K_SPACE and not self.permitir_espacios:
+                # No permitir espacios
+                return True
             else:
                 if (not self.limite_caracteres or len(self.valor) < self.limite_caracteres) and evento.unicode:
+                    # Validar el carácter antes de agregarlo
+                    if not self.validar_caracter(evento.unicode):
+                        return True  # No agregar el carácter, ya se mostró el cartel
                     self.valor = self.valor[:self.pos_cursor] + evento.unicode + self.valor[self.pos_cursor:]
                     self.pos_cursor += 1
+                    self.validar_texto()
 
             self.actualizar_texto()
             return True
+
+    def mostrar_alerta(self, mensaje):
+        """Muestra un mensaje de alerta en el cartel"""
+        if self.cartel_alerta:
+            # Posicionar el cartel cerca del campo de entrada
+            cartel_x = self.rect.x
+            cartel_y = self.rect.y - 110  # Sobre el campo de entrada
+            self.cartel_alerta.x = cartel_x
+            self.cartel_alerta.y = cartel_y
+            self.cartel_alerta.rect = pygame.Rect(cartel_x, cartel_y, 
+                                                self.cartel_alerta.ancho, 
+                                                self.cartel_alerta.alto)
+            self.cartel_alerta.boton_cerrar_rect = pygame.Rect(
+                cartel_x + self.cartel_alerta.ancho - 30, 
+                cartel_y + 10, 20, 20
+            )
+            self.cartel_alerta.mostrar(mensaje)
+        
+        # También cambiar color del borde para feedback visual
+        self.color_borde_actual = (255, 0, 0)
+        
+    def validar_caracter(self, caracter):
+        """Valida si un carácter es permitido"""
+            # No permitir espacios
+        if caracter.isspace() and not self.permitir_espacios:
+            self.mostrar_alerta("¡Nombre no válido! Recuerda no utilizar números o caracteres especiales.")
+            return False
+            
+            # No permitir números
+        if caracter.isdigit() and not self.permitir_numeros:
+            self.mostrar_alerta("¡Nombre no válido! Recuerda no utilizar números o caracteres especiales.")
+            return False
+            
+            # Permitir letras y caracteres especiales básicos
+        if not self.permitir_especiales and not caracter.isalpha():
+            self.mostrar_alerta("¡Nombre no válido! Recuerda no utilizar números o caracteres especiales.")
+            return False
+        return caracter.isprintable()
+        
+        
+    def validar_texto(self):
+        texto = self.valor.strip()
+
+        if len(texto) > self.limite_caracteres:
+            self.texto_valido = False
+            self.color_borde_actual = (255, 0, 0)
+            return
+
+        if len(texto) == 0:
+            self.texto_valido = False
+            self.color_borde_actual = (255, 0, 0)
+            return
+        
+        if not self.permitir_espacios and ' ' in texto:
+            self.texto_valido = False
+            self.color_borde_actual = (255, 0, 0)
+            return
+
+        if not self.permitir_numeros and any(caracter.isdigit() for caracter in texto):
+            self.texto_valido = False
+            self.color_borde_actual = (255, 0, 0)
+            return
+
+        self.texto_valido = True
+        self.color_borde_actual = self.color_borde
+        return True
+    
+    def obtener_texto_validado(self):
+        """Retorna el texto validado y limpio"""
+        texto = self.valor.strip()
+        if not self.permitir_espacios:
+            texto = texto.replace(' ', '')
+        if not self.permitir_numeros:
+            texto = ''.join(c for c in texto if not c.isdigit())
+        return texto
+    
     def manejar_evento(self, evento):
         if not self.visible:
             return False
@@ -474,6 +562,13 @@ class EntradaTexto(BotonRadio):
     def actualizar_texto(self):
         self.texto = self.valor
         self.prepar_texto()
+        self.validar_texto()
+
+        # Cambiar color del borde según validación
+        if not self.texto_valido:
+            self.color_borde_actual = (255, 0, 0)  # Rojo para error
+        else:
+            self.color_borde_actual = self.color_borde  # Color normal
 
     def dibujar(self):
         self.actualizar()
@@ -491,3 +586,124 @@ class EntradaTexto(BotonRadio):
             pygame.draw.line(self.pantalla, self.color_texto, (x_cursor, y_inicio), (x_cursor, y_fin), 2)
     def verificar_hover(self, posicion_raton):
         return super().verificar_hover(posicion_raton)
+class CartelAlerta:
+    def __init__(self, pantalla, mensaje, x, y, ancho=500, alto=300):
+            self.pantalla = pantalla
+            self.mensaje = mensaje
+            self.ancho = ancho
+            self.alto = alto
+            self.x = x
+            self.y = y
+            self.visible = False
+            self.rect = pygame.Rect(x, y, ancho, alto)
+            
+            # Colores
+            self.color_fondo = constantes.ELEMENTO_FONDO_PRINCIPAL
+            self.color_borde = constantes.ELEMENTO_BORDE_CUATERNARIO
+            self.color_texto = constantes.COLOR_TEXTO_PRINCIPAL
+            self.radio_borde = constantes.REDONDEO_NORMAL
+            self.grosor_borde = constantes.BORDE_PRONUNCIADO
+            
+            # Botón de cerrar
+            self.boton_cerrar_rect = pygame.Rect(x + ancho - 30, y + 10, 20, 20)
+            
+            # Preparar texto
+            self.fuente = pygame.font.SysFont(constantes.FUENTE_LLAMATIVA, 50)
+            self.preparar_texto()
+        
+    def preparar_texto(self):
+            """Divide el mensaje en líneas si es muy largo"""
+            palabras = self.mensaje.split(' ')
+            lineas = []
+            linea_actual = ""
+            
+            for palabra in palabras:
+                prueba = f"{linea_actual} {palabra}".strip() if linea_actual else palabra
+                ancho_prueba = self.fuente.size(prueba)[0]
+                
+                if ancho_prueba <= self.ancho - 20:  # Margen de 20px
+                    linea_actual = prueba
+                else:
+                    if linea_actual:
+                        lineas.append(linea_actual)
+                    linea_actual = palabra
+            
+            if linea_actual:
+                lineas.append(linea_actual)
+            
+            self.lineas = lineas
+
+    def centrar_en_pantalla(self):
+        ancho_pantalla = self.pantalla.get_width()
+        alto_pantalla = self.pantalla.get_height()
+        self.x = (ancho_pantalla - self.ancho) // 2
+        self.y = (alto_pantalla - self.alto) // 2
+        self.rect.topleft = (self.x, self.y)
+        self.boton_cerrar_rect.topleft = (self.x + self.ancho - 30, self.y + 10)
+        
+    def mostrar(self, mensaje=None):
+            """Muestra el cartel con un mensaje opcional"""
+            if mensaje:
+                self.mensaje = mensaje
+                self.preparar_texto()
+            self.centrar_en_pantalla()
+            self.visible = True
+        
+    def ocultar(self):
+            """Oculta el cartel"""
+            self.visible = False
+        
+    def manejar_evento(self, evento):
+            """Maneja eventos del ratón para cerrar el cartel"""
+            if not self.visible:
+                return False
+                
+            if evento.type == pygame.MOUSEBUTTONDOWN and evento.button == 1:
+                if self.boton_cerrar_rect.collidepoint(evento.pos):
+                    self.ocultar()
+                    return True
+                    
+            return False
+        
+    def verificar_hover(self, posicion_raton):
+            """Verifica hover sobre el botón de cerrar"""
+            if not self.visible:
+                return False
+            return self.boton_cerrar_rect.collidepoint(posicion_raton)
+        
+    def dibujar(self):
+            """Dibuja el cartel de alerta"""
+            if not self.visible:
+                return
+                
+            # Dibujar fondo y borde
+            pygame.draw.rect(self.pantalla, self.color_fondo, self.rect, border_radius=self.radio_borde)
+            pygame.draw.rect(self.pantalla, self.color_borde, self.rect, self.grosor_borde, border_radius=self.radio_borde)
+            
+            # Dibujar botón de cerrar (X)
+            pygame.draw.rect(self.pantalla, (255, 100, 100), self.boton_cerrar_rect, border_radius=5)
+            pygame.draw.line(self.pantalla, (255, 255, 255), 
+                            (self.boton_cerrar_rect.left + 5, self.boton_cerrar_rect.top + 5),
+                            (self.boton_cerrar_rect.right - 5, self.boton_cerrar_rect.bottom - 5), 2)
+            pygame.draw.line(self.pantalla, (255, 255, 255),
+                            (self.boton_cerrar_rect.right - 5, self.boton_cerrar_rect.top + 5),
+                            (self.boton_cerrar_rect.left + 5, self.boton_cerrar_rect.bottom - 5), 2)
+            
+            # --- CENTRAR EL TEXTO ---
+            # Calcular altura total del bloque de texto
+            total_text_height = 0
+            text_surfaces = []
+            for linea in self.lineas:
+                surface = self.fuente.render(linea, True, self.color_texto)
+                text_surfaces.append(surface)
+                total_text_height += surface.get_height()
+            total_text_height += 5 * (len(self.lineas) - 1)  # Espacio entre líneas
+
+            # Coordenada Y inicial para centrar verticalmente
+            y_texto = self.rect.y + (self.alto - total_text_height) // 2
+
+            # Dibujar cada línea centrada horizontalmente
+            for surface in text_surfaces:
+                x_texto = self.rect.x + (self.ancho - surface.get_width()) // 2
+                self.pantalla.blit(surface, (x_texto, y_texto))
+                y_texto += surface.get_height() + 5

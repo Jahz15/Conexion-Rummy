@@ -35,6 +35,7 @@ class Menu:
         kwargs["x"], kwargs["y"] = x,y
         nuevo_elemento = Clase(**kwargs)
         self.botones.append(nuevo_elemento)
+        return nuevo_elemento
     def dibujar_fondo(self):
         """Dibuja solo el fondo y el borde del menú"""
         pygame.draw.rect(self.pantalla, self.fondo_color, self.menu, border_radius=self.redondeo)

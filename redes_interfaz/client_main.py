@@ -1,9 +1,8 @@
+
 import time
-def run_client(cliente_rummy=None, nombre_jugador=None,un_juego=None):
+def run_client(cliente_rummy=None, nombre_jugador=None,un_juego=None,ip_servidor=None):
     client = cliente_rummy 
     client.un_juego = un_juego
-    servidores_encontrados = client.encontrar_ip_servidor()
-    print(f"Servidores encontrados: {servidores_encontrados}")
 
     id_local = client.cargar_id_local()
     nombre_cliente = nombre_jugador
@@ -15,10 +14,9 @@ def run_client(cliente_rummy=None, nombre_jugador=None,un_juego=None):
         id_local = None
         client.guardar_nombre_local(nombre_cliente)    # Guarda el nombre localmente
 
-    if servidores_encontrados and client.conectar_a_servidor(
-        servidores_encontrados[0], id_jugador_reconectar=id_local, nombre_jugador=nombre_cliente
+    if ip_servidor and client.conectar_a_servidor(
+        ip_servidor, id_jugador_reconectar=id_local, nombre_jugador=nombre_cliente
     ): 
-        print(f"Cliente conectado al servidor en {servidores_encontrados[0]}")
         try:
             while True:
                 if not client.conectado:
